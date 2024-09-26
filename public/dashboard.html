@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Department Reports Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      .container {
+        width: 90%;
+        margin: 0 auto;
+      }
+      canvas {
+        margin: 40px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      table,
+      th,
+      td {
+        border: 1px solid black;
+      }
+      th,
+      td {
+        padding: 10px;
+        text-align: left;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Department Report Dashboard</h1>
+
+      <!-- Upper half: Chart -->
+      <div>
+        <canvas id="reportChart" width="400" height="200"></canvas>
+      </div>
+
+      <!-- Lower half: Table (Details displayed on clicking chart areas) -->
+      <div>
+        <h2>Report Details</h2>
+        <table id="reportDetailsTable">
+          <thead>
+            <tr>
+              <th>Report ID</th>
+              <th>Details</th>
+              <th>Location</th>
+              <th>Status</th>
+              <th>Created At</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Rows will be inserted here dynamically -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      // Fetch data for the chart
+      async function fetchChartData() {
+        const response = await fetch('/api/reports/stats');
+        return await response.json();
+      }
+
+      // Create ChartJS chart
+      async function drawChart() {
+        const data = await fetchChartData();
+        const ctx = document.getElementById('reportChart').getContext('2d');
+        const chart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.departments, // Department names for X-axis
+            datasets: [
+              {
+                label: 'Report',
+                data: data.reportCounts,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                stack: 'stack',
+              },
+              {
+                label: 'Ack',
+                data: data.ackCounts,
+                backgroundColor: 'rgba(255, 205, 86, 0.2)',
+                stack: 'stack',
+              },
+              {
+                label: 'Processing',
+                data: data.processingCounts,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                stack: 'stack',
+              },
+              {
+                label: 'Done',
+                data: data.doneCounts,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                stack: 'stack',
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: 'top' },
+              tooltip: { mode: 'index', intersect: false },
+            },
+            scales: {
+              x: { stacked: true },
+              y: { stacked: true },
+            },
+            onClick: async function (evt, item) {
+              if (item.length > 0) {
+                const index = item[0].index;
+                const datasetIndex = item[0].datasetIndex;
+                const status = ['Report', 'Ack', 'Processing', 'Done'][
+                  datasetIndex
+                ];
+                const department = data.departments[index];
+
+                // Fetch and display details for the clicked bar
+                await fetchAndDisplayDetails(department, status);
+              }
+            },
+          },
+        });
+      }
+
+      // Function to fetch and display details when a user clicks on a bar
+      async function fetchAndDisplayDetails(department, status) {
+        const response = await fetch(
+          `/api/reports/details?department=${department}&status=${status}` // อยู่ๆ ก็เปลี่ยนมาใช้แบบนี้เฉยเลย
+        );
+        const details = await response.json();
+
+        const tableBody = document.querySelector('#reportDetailsTable tbody');
+        tableBody.innerHTML = ''; // Clear any existing rows
+
+        details.forEach((detail) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${detail.report_id}</td>
+            <td>${detail.details}</td>
+            <td>${JSON.stringify(detail.location)}</td>
+            <td>${detail.status}</td>
+            <td>${detail.createdAt}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+      }
+
+      // Load the chart on page load
+      drawChart();
+    </script>
+  </body>
+</html>
