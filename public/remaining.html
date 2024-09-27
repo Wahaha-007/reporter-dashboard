@@ -28,6 +28,15 @@
         padding: 10px;
         text-align: left;
       }
+      .show-more {
+        color: blue;
+        cursor: pointer;
+      }
+
+      #reportDetailsTable td {
+        padding: 10px;
+        border: 1px solid #ddd;
+      }
     </style>
   </head>
   <body>
@@ -46,10 +55,13 @@
           <thead>
             <tr>
               <th>Report ID</th>
+              <th>Topic</th>
               <th>Details</th>
-              <th>Location</th>
+              <th>Department</th>
               <th>Status</th>
               <th>Created At</th>
+              <th>Updater</th>
+              <th>Comment</th>
             </tr>
           </thead>
           <tbody>
@@ -131,23 +143,75 @@
       // Function to fetch and display details when a user clicks on a bar
       async function fetchAndDisplayDetails(department, status) {
         const response = await fetch(
-          `/api/reports/details?department=${department}&status=${status}` // อยู่ๆ ก็เปลี่ยนมาใช้แบบนี้เฉยเลย
+          `/api/reports/details?department=${department}&status=${status}`
         );
         const details = await response.json();
+        console.log(details);
 
         const tableBody = document.querySelector('#reportDetailsTable tbody');
         tableBody.innerHTML = ''; // Clear any existing rows
 
-        details.forEach((detail) => {
+        // Loop through the fetched report details
+        details.forEach((report) => {
           const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${detail.report_id}</td>
-            <td>${detail.details}</td>
-            <td>${JSON.stringify(detail.location)}</td>
-            <td>${detail.status}</td>
-            <td>${detail.createdAt}</td>
-          `;
+
+          // Create table cells for each relevant field
+          const idCell = document.createElement('td');
+          idCell.textContent = report.report_id;
+          row.appendChild(idCell);
+
+          const topicCell = document.createElement('td');
+          topicCell.textContent = report.topic;
+          row.appendChild(topicCell);
+
+          const detailsCell = document.createElement('td');
+          detailsCell.textContent = report.details;
+          row.appendChild(detailsCell);
+
+          const departmentCell = document.createElement('td');
+          departmentCell.textContent = report.department;
+          row.appendChild(departmentCell);
+
+          const statusCell = document.createElement('td');
+          statusCell.textContent = report.status;
+          row.appendChild(statusCell);
+
+          const createdAtCell = document.createElement('td');
+          createdAtCell.textContent = new Date(
+            report.createdAt
+          ).toLocaleString();
+          row.appendChild(createdAtCell);
+
+          const updaterCell = document.createElement('td');
+          updaterCell.textContent =
+            report.comments[report.comments.length - 1]?.updater || 'N/A';
+          console.log(updaterCell.textContent);
+          row.appendChild(updaterCell);
+
+          const commentCell = document.createElement('td');
+          // Truncate long comments and add "Show More" functionality
+          const fullComment =
+            report.comments[report.comments.length - 1]?.comment ||
+            'No comment';
+          const truncatedComment =
+            fullComment.length > 50
+              ? fullComment.slice(0, 50) +
+                '... <a href="#" class="show-more">Show More</a>'
+              : fullComment;
+
+          commentCell.innerHTML = truncatedComment;
+          row.appendChild(commentCell);
+
           tableBody.appendChild(row);
+        });
+
+        // Add event listener to handle "Show More" functionality
+        document.querySelectorAll('.show-more').forEach((link) => {
+          link.addEventListener('click', (event) => {
+            event.preventDefault();
+            const commentCell = event.target.parentElement;
+            commentCell.innerHTML = fullComment;
+          });
         });
       }
 

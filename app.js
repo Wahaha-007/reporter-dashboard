@@ -17,7 +17,11 @@ app.use('/api/reports', reportsRouter);
 
 // Dashboard route
 app.get('/dashboard/remaining', (req, res) => {
-	res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
+	res.sendFile(path.join(__dirname, 'public', 'remaining.html'));
+});
+
+app.get('/dashboard/time-heat', (req, res) => {
+	res.sendFile(path.join(__dirname, 'public', 'time-heat.html'));
 });
 
 // Start the server

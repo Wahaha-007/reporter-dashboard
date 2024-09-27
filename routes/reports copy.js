@@ -1,12 +1,12 @@
-// Date : 27 Sep 24
-// Purpose : To have NodeJS as Backend, Unified db version
+// Date : 25 Sep 24
+// Purpose : To have NodeJS as Backend
 // To Run it
 // Step 1 : Run Local Dynamo
 // 		java -Djava.library.path=./DynamoDBLocal_lib -jar DynamoDBLocal.jar -sharedDb -dbPath ./dynamodb_data
 // -- Test--
 //		aws dynamodb scan --table-name Report --endpoint-url http://localhost:8000
-// 		
-// 		curl -X GET http://localhost:3000/api/reports/
+// 		aws dynamodb scan --table-name ReportAck --endpoint-url http://localhost:8000
+// 		curl -X GET http://localhost:3000/api/reports/stats
 //
 //    
 // Step 2 : Run API Server
@@ -46,7 +46,20 @@ router.get('/', async (req, res) => {
 // เอาพวก Get มาอยู่ด้วยกันก่อนและจะได้เหมือนไล่ทำ if then else ทีละ step ให้ถูก เพราะ Algorithm 
 // ในการหา route มันเป็น แบบ String compare พวก *.* อะไรทำนองนี้ต้องไว้หลังสุด
 
+// Utility function to count reports by department in a specific table
+async function countReports(tableName, department) {
+	const params = {
+		TableName: tableName,
+		FilterExpression: '#dept = :department',
+		ExpressionAttributeNames: { '#dept': 'department' },
+		ExpressionAttributeValues: { ':department': department }
+	};
 
+	const data = await dynamodb.scan(params).promise();
+	return data.Count;
+}
+
+// Route to get report stats (for the chart)
 // Route to get report stats (for the chart)
 router.get('/stats', async (req, res) => {
 	try {
@@ -60,16 +73,15 @@ router.get('/stats', async (req, res) => {
 			Done: []
 		};
 
-		// Querying based on departments and statuses
 		for (let department of departments) {
 			for (let status of statuses) {
 				const params = {
 					TableName: 'Report',
-					IndexName: 'DepartmentIndex',  // GSI for department and createdAt
-					KeyConditionExpression: 'department = :department',
-					FilterExpression: '#status = :status',
+					IndexName: 'StatusIndex',  // Use the GSI we created
+					KeyConditionExpression: '#status = :status',
+					FilterExpression: 'department = :department',
 					ExpressionAttributeNames: {
-						'#status': 'status'  // Alias for reserved keyword
+						'#status': 'status'  // Alias to handle reserved keyword
 					},
 					ExpressionAttributeValues: {
 						':status': status,
@@ -77,7 +89,6 @@ router.get('/stats', async (req, res) => {
 					}
 				};
 
-				// Query DynamoDB to get the count of reports in the specific status and department
 				const data = await dynamodb.query(params).promise();
 				reportCounts[status].push(data.Count);
 			}
@@ -97,18 +108,16 @@ router.get('/stats', async (req, res) => {
 	}
 });
 
-
 // Route to get detailed report data (for the table)
 router.get('/details', async (req, res) => {
 	const { department, status } = req.query;
 
 	try {
-		// Query the GSI to find reports matching the department and status
 		const params = {
 			TableName: 'Report',
-			IndexName: 'DepartmentIndex',  // GSI for department and createdAt
-			KeyConditionExpression: 'department = :department',
-			FilterExpression: '#status = :status',
+			IndexName: 'StatusIndex',
+			KeyConditionExpression: '#status = :status',
+			FilterExpression: 'department = :department',
 			ExpressionAttributeNames: {
 				'#status': 'status'  // Alias for reserved keyword
 			},
@@ -118,15 +127,14 @@ router.get('/details', async (req, res) => {
 			}
 		};
 
-		// Query DynamoDB for report IDs matching the given department and status
 		const gsiData = await dynamodb.query(params).promise();
 
-		// Use report_id to get full details from the main table
+		// Now, use the report_id from the GSI result to get the full item from the main table
 		const fullItems = await Promise.all(
 			gsiData.Items.map(async (item) => {
 				const fullParams = {
 					TableName: 'Report',
-					Key: { report_id: item.report_id, createdAt: item.createdAt }  // Use both report_id and createdAt
+					Key: { report_id: item.report_id }  // ใจความสำคัญคือตรงนี้เลย
 				};
 				const fullData = await dynamodb.get(fullParams).promise();
 				return fullData.Item;
@@ -140,7 +148,6 @@ router.get('/details', async (req, res) => {
 		res.status(500).json({ error: 'Could not load report details' });
 	}
 });
-
 
 const getStatusChangeTimes = () => {
 	return {

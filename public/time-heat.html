@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Heatmap</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  </head>
+  <body>
+    <h1>Department Responsiveness Heatmap</h1>
+    <div id="heatmap" style="width: 600px; height: 400px"></div>
+
+    <script>
+      // Fetch data from backend API
+      fetch('http://localhost:3000/api/reports/status-change-times')
+        .then((response) => response.json())
+        .then((data) => {
+          // Extract departments and heatmap data from the API response
+          const departments = Object.keys(data); // Department names
+          const heatmapData = Object.values(data); // Time data for each department
+
+          // Define the status changes
+          const statusChanges = [
+            'Report -> Ack',
+            'Ack -> Processing',
+            'Processing -> Done',
+          ];
+
+          // Define the heatmap data structure for Plotly
+          const plotData = [
+            {
+              z: heatmapData, // Data for heatmap
+              x: statusChanges, // X-axis labels (status changes)
+              y: departments, // Y-axis labels (departments)
+              type: 'heatmap', // Type of chart
+              colorscale: 'Viridis', // Color scale for the heatmap
+            },
+          ];
+
+          // Layout for the heatmap chart
+          const layout = {
+            title: 'Time Between Status Changes (Hours)',
+            xaxis: { title: 'Status Changes' },
+            yaxis: { title: 'Departments' },
+          };
+
+          // Render the heatmap using Plotly
+          Plotly.newPlot('heatmap', plotData, layout);
+        })
+        .catch((error) => console.error('Error fetching data:', error));
+    </script>
+  </body>
+</html>
